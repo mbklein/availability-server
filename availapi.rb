@@ -63,6 +63,7 @@ module Availability
         }
       else
         responder = RESPONSE_TYPES.find { |rt| rt[:extensions].include?(ext) }
+        output_type = responder[:mime_types].first
       end
       
       res = Rack::Response.new
