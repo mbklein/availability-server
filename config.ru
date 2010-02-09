@@ -1,19 +1,13 @@
+require 'rubygems'
+require 'sinatra'
 require 'availapi'
-require 'rack/builder'
 
 use Rack::CommonLogger
 use Rack::ShowExceptions
 
-availability = Availability::Service.new
+set :environment, :production
+set :root, File.dirname(__FILE__)
+set :app_file, File.join(File.dirname(__FILE__),'availapi.rb')
+disable :run
 
-map "/availability" do
-  run availability
-end
-
-Availability::RESPONSE_TYPES.each { |rt|
-	rt[:extensions].each { |ext|
-		map "/availability#{ext}" do
-		  run availability
-		end
-	}
-}
+run Sinatra::Application
