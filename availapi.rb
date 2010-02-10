@@ -9,21 +9,19 @@ require 'rack/conneg'
 require 'sinatra'
 require 'yaml'
 
+use(Rack::Conneg) { |conneg|
+  conneg.ignore('/public/')
+  conneg.provide([:json, :xml])
+}
+
+configure do
+end
+
 before do
   # Force s.id to be an array type
   request.env['QUERY_STRING'] = request.env['QUERY_STRING'].gsub(/s\.id=/,'s.id[]=')
   params['s.id'] = request.params['s.id']
-  negotiated_type = request.negotiate(['application/xml','application/json'])
-  if negotiated_type
-    content_type negotiated_type.content_type
-  else
-    error 400
-  end
-end
-
-configure do
-  set :default_content, :json
-  set :assume_xhr_is_js, true
+  content_type negotiated_format
 end
 
 helpers do
@@ -61,7 +59,7 @@ end
 get '/availability' do
   data = get_availabilities(params['s.id'] || [])
   
-  request.respond_to do |wants|
+  respond_to do |wants|
     wants.xml {
       xml = Builder::XmlMarkup.new
       xml.response(:version => data['version'], :totalRequestTime => data['totalRequestTime']) do
