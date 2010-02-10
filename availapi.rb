@@ -5,19 +5,25 @@ require 'builder'
 require 'hpricot'
 require 'json'
 require 'open-uri'
+require 'rack/conneg'
 require 'sinatra'
-require 'sinatra/respond_to'
-
-Sinatra::Base.register Sinatra::RespondTo
+require 'yaml'
 
 before do
   # Force s.id to be an array type
   request.env['QUERY_STRING'] = request.env['QUERY_STRING'].gsub(/s\.id=/,'s.id[]=')
   params['s.id'] = request.params['s.id']
+  negotiated_type = request.negotiate(['application/xml','application/json'])
+  if negotiated_type
+    content_type negotiated_type.content_type
+  else
+    error 400
+  end
 end
 
 configure do
-  set :default_content, :xml
+  set :default_content, :json
+  set :assume_xhr_is_js, true
 end
 
 helpers do
@@ -55,7 +61,7 @@ end
 get '/availability' do
   data = get_availabilities(params['s.id'] || [])
   
-  respond_to do |wants|
+  request.respond_to do |wants|
     wants.xml {
       xml = Builder::XmlMarkup.new
       xml.response(:version => data['version'], :totalRequestTime => data['totalRequestTime']) do
@@ -72,9 +78,9 @@ get '/availability' do
       end
       xml.target!
     }
-    wants.json {
-      data.to_json
-    }
+    wants.js    { data.to_json }
+    wants.json  { data.to_json }
+    wants.other { error 400, 'Bad Request' }
   end
   
 end
