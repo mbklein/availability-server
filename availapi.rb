@@ -9,26 +9,33 @@ require 'rack/conneg'
 require 'sinatra'
 require 'yaml'
 
+VERSION = '0.1.0'
+
 use(Rack::Conneg) { |conneg|
+  conneg.set :accept_all_extensions, false
+  conneg.set :fallback, :html
   conneg.ignore('/public/')
   conneg.provide([:json, :xml])
 }
 
 configure do
+  config_file = File.join(File.dirname(__FILE__), 'config/config.yml')
+  opts = YAML.load(File.read(config_file))
+  set opts
 end
 
 before do
   # Force s.id to be an array type
   request.env['QUERY_STRING'] = request.env['QUERY_STRING'].gsub(/s\.id=/,'s.id[]=')
   params['s.id'] = request.params['s.id']
-  content_type negotiated_format
+  content_type negotiated_type
 end
 
 helpers do
 
   def get_availabilities(bibs)
     start_time = Time.now
-    result = { 'version' => '0.0.1', 'availabilityItems' => [] }
+    result = { 'version' => VERSION, 'availabilityItems' => [] }
     bibs.each { |bib|
       result['availabilityItems'] << get_availability(bib)
     }
@@ -38,18 +45,27 @@ helpers do
 
   def get_availability(bib)
     result = { 'id' => bib, 'availabilities' => [] }
-    millennium_uri = "http://oasis.oregonstate.edu/record=#{bib}"
-    page = Hpricot(open(millennium_uri))
-    page.search('.bibItemsEntry').each do |item|
-      data = item.children.collect { |c| c.inner_text.strip.gsub(/\302\240/,'') }.reject { |t| t.empty? }
+    uri = options.opac_uri % bib
+    page = Hpricot(open(uri))
+    page.search(options.item_container).each do |item|
+      data = item.children.collect { |c| 
+        t = c.inner_text
+        if options.process_entry
+          t.gsub!(*(options.process_entry))
+        end
+        t.strip
+      }
+      data.reject! { |t| t.empty? }
       location = data.first
       status = data.last
-      result['availabilities'] << { 
-        'displayString' => "#{status}, #{location}", 
-        'status' => status =~ /^(AVAILABLE|INTERNET|LIB USE|NEW )/ ? 'available' : 'unavailable',
-        'statusMessage' => status,
-        'locationString' => location
+      availability = { 
+        'statusMessage'  => options.status_format % data,
+        'callNumber'     => options.call_number_format % data,
+        'locationString' => options.location_format % data,
+        'displayString'  => options.display_format % data
       }
+      availability['status'] = options.availability === availability['statusMessage'] ? 'available' : 'unavailable'
+      result['availabilities'] << availability
     end
     return result
   end
@@ -68,7 +84,8 @@ get '/availability' do
             xml.availabilities(:id => item['id']) do
               item['availabilities'].each { |avail|
                 xml.availability(:displayString => avail['displayString'], :status => avail['status'],
-                  :statusMessage => avail['statusMessage'], :locationString => avail['locationString'])
+                  :statusMessage => avail['statusMessage'], :locationString => avail['locationString'],
+                  :callNumber => avail['callNumber'])
               }
             end
           }
@@ -76,9 +93,8 @@ get '/availability' do
       end
       xml.target!
     }
-    wants.js    { data.to_json }
     wants.json  { data.to_json }
-    wants.other { error 400, 'Bad Request' }
+    wants.other { content_type 'text/plain'; error 400, 'Bad Request' }
   end
   
 end
