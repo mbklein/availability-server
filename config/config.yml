@@ -4,8 +4,11 @@
 :process_entry: 
 - !ruby/regexp /\302\240/
 - ""
-:status_format: %3$s
-:location_format: %1$s
-:call_number_format : %2$s
-:display_format: %3$s, %1$s
-:availability: !ruby/regexp /^(AVAILABLE|INTERNET|LIB USE|NEW )/
+:result_fields:
+  statusMessage: %3$s
+  locationString: %1$s
+  callNumber: %2$s
+  displayString: %3$s, %1$s
+:availability_test: 
+  :source: %3$s
+  :regexp: ^(AVAILABLE|INTERNET|LIB USE|NEW )

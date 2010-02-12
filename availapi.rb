@@ -44,6 +44,7 @@ helpers do
   end
 
   def get_availability(bib)
+    availability_regexp = Regexp.compile(options.availability_test[:regexp])
     result = { 'id' => bib, 'availabilities' => [] }
     uri = options.opac_uri % bib
     page = Hpricot(open(uri))
@@ -58,13 +59,12 @@ helpers do
       data.reject! { |t| t.empty? }
       location = data.first
       status = data.last
-      availability = { 
-        'statusMessage'  => options.status_format % data,
-        'callNumber'     => options.call_number_format % data,
-        'locationString' => options.location_format % data,
-        'displayString'  => options.display_format % data
+      availability = {
+        'status' => availability_regexp === (options.availability_test[:source] % data) ? 'available' : 'unavailable'
       }
-      availability['status'] = options.availability === availability['statusMessage'] ? 'available' : 'unavailable'
+      options.result_fields.each_pair { |key,format|
+        availability[key] = format % data
+      }
       result['availabilities'] << availability
     end
     return result
@@ -83,9 +83,7 @@ get '/availability' do
           data['availabilityItems'].each { |item|
             xml.availabilities(:id => item['id']) do
               item['availabilities'].each { |avail|
-                xml.availability(:displayString => avail['displayString'], :status => avail['status'],
-                  :statusMessage => avail['statusMessage'], :locationString => avail['locationString'],
-                  :callNumber => avail['callNumber'])
+                xml.availability(avail)
               }
             end
           }
