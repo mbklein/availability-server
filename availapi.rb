@@ -10,7 +10,7 @@ require 'sinatra'
 require 'preprocessor'
 require 'yaml'
 
-API_VERSION = '0.1.3'
+API_VERSION = '0.1.4'
 
 use(Rack::Preprocessor) { |env|
   # Remove 's.' prefixes from parameters; force params['id'] to be an array type
@@ -31,7 +31,6 @@ configure do
 end
 
 before do
-  puts request.params.inspect
   content_type negotiated_type
 end
 
@@ -52,7 +51,8 @@ helpers do
     result = { 'id' => bib, 'availabilities' => [] }
     uri = options.opac_uri % bib
     page = Hpricot(open(uri))
-    page.search(options.item_container).each do |item|
+    
+    result['availabilities'] = page.search(options.item_container).collect { |item|
       data = item.children.collect { |c| 
         t = c.inner_text
         if options.process_entry
@@ -67,10 +67,16 @@ helpers do
         'status' => availability_regexp === (options.availability_test[:source] % data) ? 'available' : 'unavailable'
       }
       options.result_fields.each_pair { |key,format|
+        puts "#{key} => '#{format}' % (#{data.join(',')})"
         availability[key] = format % data
       }
-      result['availabilities'] << availability
-    end
+      availability
+    }
+    
+    result['links'] = page.search(options.link_container).collect { |item|
+      item.search('//a').collect { |a| a.attributes['href'] }
+    }.flatten.uniq
+    
     return result
   end
 

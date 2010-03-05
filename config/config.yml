@@ -1,5 +1,6 @@
 --- 
 :opac_uri: http://oasis.oregonstate.edu/record=%s
+:link_container: .bibLinks
 :item_container: .bibItemsEntry
 :process_entry: 
 - !ruby/regexp /\302\240/
