@@ -67,7 +67,6 @@ helpers do
         'status' => availability_regexp === (options.availability_test[:source] % data) ? 'available' : 'unavailable'
       }
       options.result_fields.each_pair { |key,format|
-        puts "#{key} => '#{format}' % (#{data.join(',')})"
         availability[key] = format % data
       }
       availability
@@ -88,12 +87,15 @@ get '/availability' do
   respond_to do |wants|
     wants.xml {
       xml = Builder::XmlMarkup.new
-      xml.response(:version => data['version'], :totalRequestTime => data['totalRequestTime']) do
+      xml.response(:version => data['version'], :totalRequestTime => data['totalRequestTime'], 'xmlns:xlink' => 'http://www.w3.org/1999/xlink') do
         xml.availabilityItems do
           data['availabilityItems'].each { |item|
             xml.availabilities(:id => item['id']) do
               item['availabilities'].each { |avail|
                 xml.availability(avail)
+              }
+              item['links'].each { |link|
+                xml.link('xlink:type' => 'locator', 'xlink:href' => link)
               }
             end
           }
