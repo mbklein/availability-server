@@ -7,9 +7,15 @@ require 'json'
 require 'open-uri'
 require 'rack/conneg'
 require 'sinatra'
+require 'preprocessor'
 require 'yaml'
 
-VERSION = '0.1.0'
+API_VERSION = '0.1.3'
+
+use(Rack::Preprocessor) { |env|
+  # Remove 's.' prefixes from parameters; force params['id'] to be an array type
+  env['QUERY_STRING'] = env['QUERY_STRING'].gsub(/\bs\./,'').gsub(/\bid=/,'id[]=')
+}
 
 use(Rack::Conneg) { |conneg|
   conneg.set :accept_all_extensions, false
@@ -25,9 +31,7 @@ configure do
 end
 
 before do
-  # Force s.id to be an array type
-  request.env['QUERY_STRING'] = request.env['QUERY_STRING'].gsub(/s\.id=/,'s.id[]=')
-  params['s.id'] = request.params['s.id']
+  puts request.params.inspect
   content_type negotiated_type
 end
 
@@ -35,7 +39,7 @@ helpers do
 
   def get_availabilities(bibs)
     start_time = Time.now
-    result = { 'version' => VERSION, 'availabilityItems' => [] }
+    result = { 'version' => API_VERSION, 'availabilityItems' => [] }
     bibs.each { |bib|
       result['availabilityItems'] << get_availability(bib)
     }
@@ -73,7 +77,7 @@ helpers do
 end
 
 get '/availability' do
-  data = get_availabilities(params['s.id'] || [])
+  data = get_availabilities(params['id'] || [])
   
   respond_to do |wants|
     wants.xml {
