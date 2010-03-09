@@ -4,7 +4,7 @@ require 'ostruct'
 
 class AvailabilityHash
 
-  API_VERSION = '0.1.4'
+  API_VERSION = '0.1.5'
   
   def initialize
     @hash = { 'version' => API_VERSION, 'availabilityItems' => [] }

@@ -7,6 +7,7 @@ require 'preprocessor'
 require 'yaml'
 
 begin
+  require 'config/scrapers/abstract_scraper'
   scraper_dir = File.join(File.dirname(__FILE__),'config','scrapers')
   Dir.glob(File.join(scraper_dir,'*.rb')).each { |scraper|
     require File.join(scraper_dir,File.basename(scraper,File.extname(scraper)))
