@@ -4,6 +4,9 @@ require 'open-uri'
 class OasisScraper < AvailabilityScraper
   
   def get_availability(bib)
+    # Make sure we properly format the bib, including leading 'b' and removing
+    # check digit.
+    bib = "b#{bib[/[0-9]{7}/]}"
     result = { 'id' => bib, 'availabilities' => [] }
     availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
     uri = "http://oasis.oregonstate.edu/record=#{bib}"
