@@ -28,7 +28,9 @@ class OasisScraper < AvailabilityScraper
           'status' => 'available',
           'statusMessage' => 'AVAILABLE',
           'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>}
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
+          'priority' => link_text =~ /contents/ ? 3 : 1,
+          'index' => availabilities.length
         ]
       }
     }.flatten
@@ -38,9 +40,7 @@ class OasisScraper < AvailabilityScraper
       cells = item.search('td')
       ranges = parse_date_ranges(cells[0].inner_text.strip)
       cells[1].search('//a').each_with_index { |a,i| 
-        puts i
         range_text = ranges[i]
-        puts range_text
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         resource = ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text]
         resource['start'] = range[0]
@@ -52,7 +52,9 @@ class OasisScraper < AvailabilityScraper
           'status' => 'available',
           'statusMessage' => "AVAILABLE (#{range_text})",
           'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>}
+          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
+          'priority' => 1,
+          'index' => availabilities.length
         ]
       }
     }
@@ -74,24 +76,45 @@ class OasisScraper < AvailabilityScraper
           t = c.inner_text.gsub(/\302\240/,'').strip
         }
         
-        availabilities << {
+        availabilities << ContentAwareHash[
           'status' => availability_regexp === data[2] ? 'available' : 'unavailable',
           'statusMessage' => '%3$s' % data,
           'locationString' => '%1$s' % data,
           'callNumber' => '%2$s' % data,
           'displayString' => '%3$s, %1$s, %2$s' % data,
-        }
+          'priority' => 2,
+          'index' => availabilities.length
+        ]
       }
     else
       holdings.each { |holding|
-        availabilities << { 
+        availabilities << ContentAwareHash[ 
           'status' => 'available',
           'locationString' => holding['Location'],
           'statusMessage' => "LIBRARY OWNS #{holding['Library Owns']}",
-          'displayString' => "LIBRARY OWNS #{holding['Library Owns']} / #{holding['Location']}"
-        }
+          'displayString' => "LIBRARY OWNS #{holding['Library Owns']} / #{holding['Location']}",
+          'priority' => 2,
+          'index' => availabilities.length
+        ]
       }
     end
+    
+    availabilities.sort! { |a,b| 
+      order = a['priority'] <=> b['priority']
+      # Ensure stable sort; i.e., items of equal priority stay in their original order
+      if order == 0
+        order = a['index'] <=> b['index']
+      end
+      order
+    }
+
+    availabilities.each { |availability|
+      ### BEGIN TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
+#      availability['displayString'] = availability['statusMessage']
+      ### END   TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
+      availability.delete('priority')
+      availability.delete('index')
+    }
     
     result['availabilities'] = availabilities.uniq
     result['resources'] = resources.uniq
