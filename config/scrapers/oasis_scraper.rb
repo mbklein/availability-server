@@ -36,7 +36,6 @@ class OasisScraper < AvailabilityScraper
     # Checkin record 856 fields
     content_wrapper.search('tr.bibResourceEntry').each { |item|
       cells = item.search('td')
-      $stderr.puts cells[0].inner_text.strip
       ranges = parse_date_ranges(cells[0].inner_text.strip)
       cells[1].search('//a').each_with_index { |a,i| 
         puts i

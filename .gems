@@ -1,0 +1,5 @@
+hpricot --version 0.8.2
+builder --version 2.1.2
+json --version 1.2.0
+rack-conneg --version 0.1.4
+sinatra --version 0.9.4
