@@ -2,6 +2,7 @@
 
 require 'rubygems'
 require 'rack/conneg'
+require 'logger'
 require 'sinatra'
 require 'preprocessor'
 require 'yaml'
@@ -30,10 +31,14 @@ configure do
   config_file = File.join(File.dirname(__FILE__), 'config/config.yml')
   opts = YAML.load(File.read(config_file))
   set :scraper, eval(opts[:scraper]).new
+  set :logger, Logger.new('log/availability.log')
 end
 
 before do
-  content_type negotiated_type
+  if negotiated_type
+#    options.logger.info(negotiated_type)
+    content_type negotiated_type
+  end
 end
 
 get '/availability' do

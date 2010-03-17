@@ -5,52 +5,93 @@ class OasisScraper < AvailabilityScraper
   
   def get_availability(bib)
     # Make sure we properly format the bib, including leading 'b' and removing
-    # check digit.
-    bib = "b#{bib[/[0-9]{7}/]}"
+    # check digit. But put the *original* bib in the output, since the client
+    # will probably be keying off of it.
     result = { 'id' => bib, 'availabilities' => [] }
+    bib = "b#{bib[/[0-9]{7}/]}"
+    result['bib'] = bib
     availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
     uri = "http://oasis.oregonstate.edu/record=#{bib}"
     page = Hpricot(open(uri))
-  
-    result['availabilities'] = page.search('.bibItemsEntry').collect { |item|
-      data = item.search('td').collect { |c| 
-        t = c.inner_text.gsub(/\302\240/,'').strip
-      }
-      location = data.first
-      status = data.last
-      availability = {
-        'status' => availability_regexp === data[2] ? 'available' : 'unavailable'
-      }
-      
-      availability['statusMessage'] = '%3$s' % data
-      availability['locationString'] = '%1$s' % data
-      availability['callNumber'] = '%2$s' % data
-      availability['displayString'] = '%3$s, %1$s' % data
+    content_wrapper = page.search('div.bibContentWrapper').first || page
 
-      availability
-    }
-  
     # Bib record 856 fields
     resources = []
+    availabilities = []
     
-    page.search('.bibLinks').each { |item|
+    content_wrapper.search('.bibLinks').each { |item|
       item.search('//a').each { |a| 
         resources << ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text] 
+
+        link_text = a.inner_text.split(/--/).last.strip
+        availabilities << ContentAwareHash[
+          'status' => 'available',
+          'statusMessage' => 'AVAILABLE',
+          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>}
+        ]
       }
     }.flatten
     
     # Checkin record 856 fields
-    page.search('tr.bibResourceEntry').each { |item|
+    content_wrapper.search('tr.bibResourceEntry').each { |item|
       cells = item.search('td')
-      range = cells[0].inner_text.strip.split(/-/).collect { |d| Date.parse(d) }
-      cells[1].search('//a').each { |a| 
+      ranges = cells[0].inner_text.strip.scan(/(.+?(?:\d{4}|-)).+?,?\s*/).flatten
+      cells[1].search('//a').each_with_index { |a,i| 
+        range_text = ranges[i]
+        range = range_text.split(/-/).collect { |d| Date.parse(d) }
         resource = ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text]
         resource['start'] = range[0]
         resource['end'] = range[1] unless range[1].nil?
         resources << resource
+        
+        link_text = a.inner_text.split(/--/).last.strip
+        availabilities << ContentAwareHash[
+          'status' => 'available',
+          'statusMessage' => "AVAILABLE (#{range_text})",
+          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
+          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>}
+        ]
       }
     }
-  
+
+    holdings = []
+    content_wrapper.search('td.bibHoldingsLabel').each { |item| 
+      # Ugliest. String transformation. EVER.
+      # Remove \302\240, leading/trailing whitespace, internal \r\n's, and trailing colons, then
+      # convert to Title Case.
+      key = item.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ').sub(/\s*:\s*$/,'').downcase.gsub(/\b(.)/) { |m| m.upcase }
+      if key == 'Location'
+        holdings << { }
+      end
+      holdings.last[key] = item.next_sibling.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ')
+    }
+    if holdings.empty?  
+      content_wrapper.search('.bibItemsEntry').each { |item|
+        data = item.search('td').collect { |c| 
+          t = c.inner_text.gsub(/\302\240/,'').strip
+        }
+        
+        availabilities << {
+          'status' => availability_regexp === data[2] ? 'available' : 'unavailable',
+          'statusMessage' => '%3$s' % data,
+          'locationString' => '%1$s' % data,
+          'callNumber' => '%2$s' % data,
+          'displayString' => '%3$s, %1$s, %2$s' % data,
+        }
+      }
+    else
+      holdings.each { |holding|
+        availabilities << { 
+          'status' => 'available',
+          'locationString' => holding['Location'],
+          'statusMessage' => "LIBRARY OWNS #{holding['Library Owns']}",
+          'displayString' => "LIBRARY OWNS #{holding['Library Owns']}, #{holding['Location']}"
+        }
+      }
+    end
+    
+    result['availabilities'] = availabilities.uniq
     result['resources'] = resources.uniq
     
     return result

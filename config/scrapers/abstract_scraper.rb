@@ -19,7 +19,7 @@ class AvailabilityHash
     xml.response(:version => @hash['version'], :totalRequestTime => @hash['totalRequestTime'], 'xmlns:xlink' => 'http://www.w3.org/1999/xlink') do
       xml.availabilityItems do
         @hash['availabilityItems'].each { |item|
-          xml.availabilities(:id => item['id']) do
+          xml.availabilities(:id => item['id'], :bib => item['bib']) do
             item['availabilities'].each { |avail|
               xml.availability(avail)
             }
