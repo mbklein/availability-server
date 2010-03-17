@@ -36,9 +36,12 @@ class OasisScraper < AvailabilityScraper
     # Checkin record 856 fields
     content_wrapper.search('tr.bibResourceEntry').each { |item|
       cells = item.search('td')
-      ranges = cells[0].inner_text.strip.scan(/(.+?(?:\d{4}|-)).+?,?\s*/).flatten
+      $stderr.puts cells[0].inner_text.strip
+      ranges = parse_date_ranges(cells[0].inner_text.strip)
       cells[1].search('//a').each_with_index { |a,i| 
+        puts i
         range_text = ranges[i]
+        puts range_text
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         resource = ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text]
         resource['start'] = range[0]
@@ -86,7 +89,7 @@ class OasisScraper < AvailabilityScraper
           'status' => 'available',
           'locationString' => holding['Location'],
           'statusMessage' => "LIBRARY OWNS #{holding['Library Owns']}",
-          'displayString' => "LIBRARY OWNS #{holding['Library Owns']}, #{holding['Location']}"
+          'displayString' => "LIBRARY OWNS #{holding['Library Owns']} / #{holding['Location']}"
         }
       }
     end
@@ -96,5 +99,23 @@ class OasisScraper < AvailabilityScraper
     
     return result
   end
+  
+  private
+  def parse_date_ranges(str)
+    re = /([A-Za-z]+\.?\s+[0-9]{1,2},\s+[0-9]{4}(?:\s*-\s*)?)/
+
+    segments = str.scan(re).flatten
+    end_range = ''
+    segments.reverse.collect { |s|
+      s.strip!
+      if s =~ /-\s*$/
+        end_range.empty? ? s : s + end_range
+      else
+        end_range = s
+        nil
+      end
+    }.compact.reverse
+  end
+  
 end
 
