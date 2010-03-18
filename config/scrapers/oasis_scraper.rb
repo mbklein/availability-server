@@ -112,7 +112,7 @@ class OasisScraper < AvailabilityScraper
 
     availabilities.each { |availability|
       ### BEGIN TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
-      availability['displayString'] = availability['statusMessage']
+#      availability['displayString'] = availability['statusMessage']
       ### END   TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
       availability.delete('priority')
       availability.delete('index')
