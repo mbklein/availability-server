@@ -2,6 +2,8 @@ require 'hpricot'
 require 'open-uri'
 
 class OasisScraper < AvailabilityScraper
+
+  SUMMARY_LINK_RE = /(contents|finding aid)/i
   
   def get_availability(bib)
     # Make sure we properly format the bib, including leading 'b' and removing
@@ -29,7 +31,7 @@ class OasisScraper < AvailabilityScraper
           'statusMessage' => 'AVAILABLE',
           'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
           'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'priority' => link_text =~ /contents/ ? 3 : 1,
+          'priority' => link_text =~ SUMMARY_LINK_RE ? 3 : 1,
           'index' => availabilities.length
         ]
       }
@@ -110,7 +112,7 @@ class OasisScraper < AvailabilityScraper
 
     availabilities.each { |availability|
       ### BEGIN TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
-#      availability['displayString'] = availability['statusMessage']
+      availability['displayString'] = availability['statusMessage']
       ### END   TEMPORARY FIX TO FOOL THE SUMMON SCRAPER - REMOVE FOR 3/26 ITERATION ###
       availability.delete('priority')
       availability.delete('index')
