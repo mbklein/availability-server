@@ -22,16 +22,16 @@ class OasisScraper < AvailabilityScraper
     
     content_wrapper.search('.bibLinks').each { |item|
       item.search('//a').each { |a| 
-        link_text = a.inner_text.split(/--/).last.strip
+        link_title = a.inner_text.split(/--/).last.strip
         availabilities << ContentAwareHash[
           'status' => 'available',
           'statusMessage' => 'AVAILABLE',
-          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'priority' => link_text =~ SUMMARY_LINK_RE ? 3 : 1,
+          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'priority' => link_title =~ SUMMARY_LINK_RE ? 3 : 1,
           'index' => availabilities.length,
           'href' => a.attributes['href'],
-          'link_text' => a.inner_text
+          'link_title' => link_title
         ]
       }
     }.flatten
@@ -45,16 +45,16 @@ class OasisScraper < AvailabilityScraper
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
         href=a.attributes['href']
-        link_text = a.inner_text.split(/--/).last.strip
+        link_title = a.inner_text.split(/--/).last.strip
         availability= ContentAwareHash[
           'status' => 'available',
           'statusMessage' => "AVAILABLE (#{range_text})",
-          'locationString' => %{<a href="#{href}" target="_new">#{link_text}</a>},
-          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{href}" target="_new">#{link_text}</a>},
+          'locationString' => %{<a href="#{href}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{href}" target="_new">#{link_title}</a>},
           'priority' => 1,
           'index' => availabilities.length,
           'href' => href,
-          'link_text' => link_text
+          'link_title' => link_title
         ]
         availability['date_start'] = range[0]
         availability['date_end'] = range[1] unless range[1].nil?

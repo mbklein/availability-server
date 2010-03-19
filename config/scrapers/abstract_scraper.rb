@@ -22,9 +22,12 @@ class AvailabilityHash
           xml.availabilities(:id => item['id'], :bib => item['bib']) do
             item['availabilities'].each { |avail|
               attrs = avail.dup
-              attrs['xlink:href'] = attrs.delete('href')
-              attrs['xlink:title'] = attrs.delete('link_text')
-              attrs['xlink:type'] = 'locator'
+              if attrs['href']
+                attrs['xlink:href'] = attrs.delete('href')
+                attrs['xlink:title'] = attrs.delete('link_text')
+                attrs['xlink:type'] = 'locator'
+              end
+              attrs.reject! { |k,v| v.nil? }
               xml.availability(attrs)
             }
           end
