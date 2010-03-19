@@ -25,7 +25,7 @@ class AvailabilityHash
               attrs['xlink:href'] = attrs.delete('href')
               attrs['xlink:title'] = attrs.delete('link_text')
               attrs['xlink:type'] = 'locator'
-              xml.availability(avail)
+              xml.availability(attrs)
             }
           end
         }
