@@ -21,11 +21,11 @@ class AvailabilityHash
         @hash['availabilityItems'].each { |item|
           xml.availabilities(:id => item['id'], :bib => item['bib']) do
             item['availabilities'].each { |avail|
+              attrs = avail.dup
+              attrs['xlink:href'] = attrs.delete('href')
+              attrs['xlink:title'] = attrs.delete('link_text')
+              attrs['xlink:type'] = 'locator'
               xml.availability(avail)
-            }
-            item['resources'].each { |link|
-              range_info = { 'start' => link['start'], 'end' => link['end'] }.reject { |k,v| v.nil? }
-              xml.resource({'xlink:type' => 'locator', 'xlink:href' => link['url'], 'xlink:title' => link['title'] }.merge(range_info))
             }
           end
         }

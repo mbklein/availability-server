@@ -18,13 +18,10 @@ class OasisScraper < AvailabilityScraper
     content_wrapper = page.search('div.bibContentWrapper').first || page
 
     # Bib record 856 fields
-    resources = []
     availabilities = []
     
     content_wrapper.search('.bibLinks').each { |item|
       item.search('//a').each { |a| 
-        resources << ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text] 
-
         link_text = a.inner_text.split(/--/).last.strip
         availabilities << ContentAwareHash[
           'status' => 'available',
@@ -32,7 +29,9 @@ class OasisScraper < AvailabilityScraper
           'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
           'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
           'priority' => link_text =~ SUMMARY_LINK_RE ? 3 : 1,
-          'index' => availabilities.length
+          'index' => availabilities.length,
+          'href' => a.attributes['href'],
+          'link_text' => a.inner_text
         ]
       }
     }.flatten
@@ -44,20 +43,22 @@ class OasisScraper < AvailabilityScraper
       cells[1].search('//a').each_with_index { |a,i| 
         range_text = ranges[i]
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
-        resource = ContentAwareHash['url' => a.attributes['href'], 'title' => a.inner_text]
-        resource['start'] = range[0]
-        resource['end'] = range[1] unless range[1].nil?
-        resources << resource
         
+        href=a.attributes['href']
         link_text = a.inner_text.split(/--/).last.strip
-        availabilities << ContentAwareHash[
+        availability= ContentAwareHash[
           'status' => 'available',
           'statusMessage' => "AVAILABLE (#{range_text})",
-          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
-          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{a.attributes['href']}" target="_new">#{link_text}</a>},
+          'locationString' => %{<a href="#{href}" target="_new">#{link_text}</a>},
+          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{href}" target="_new">#{link_text}</a>},
           'priority' => 1,
-          'index' => availabilities.length
+          'index' => availabilities.length,
+          'href' => href,
+          'link_text' => link_text
         ]
+        availability['date_start'] = range[0]
+        availability['date_end'] = range[1] unless range[1].nil?
+        availabilities << availability
       }
     }
 
@@ -119,7 +120,6 @@ class OasisScraper < AvailabilityScraper
     }
     
     result['availabilities'] = availabilities.uniq
-    result['resources'] = resources.uniq
     
     return result
   end
