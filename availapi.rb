@@ -29,7 +29,7 @@ use(Rack::Conneg) { |conneg|
 configure do
   config_file = File.join(File.dirname(__FILE__), 'config/config.yml')
   opts = YAML.load(File.read(config_file))
-  set :scraper, eval(opts[:scraper]).new
+  set :scraper_class, opts[:default_scraper]
 end
 
 before do
@@ -39,7 +39,16 @@ before do
 end
 
 get '/availability' do
-  data = options.scraper.get_availabilities(params['id'] || [])
+  scraper_class = Kernel.const_get(options.scraper_class)
+  if params['scraper']
+    scraper_class = Kernel.const_get(params['scraper'])
+    unless scraper_class.ancestors.include?(AvailabilityScraper)
+      content_type 'text/plain'
+      error 400, "Bad Request: #{params['scraper']} is not a subclass of AvailabilityScraper"
+    end
+  end
+  scraper = scraper_class.new
+  data = scraper.get_availabilities(params['id'] || [])
   
   respond_to do |wants|
     wants.xml   { data.to_xml  }

@@ -6,8 +6,8 @@ class AvailabilityHash
 
   API_VERSION = '0.1.5'
   
-  def initialize
-    @hash = { 'version' => API_VERSION, 'availabilityItems' => [] }
+  def initialize(attributes = {})
+    @hash = { 'version' => API_VERSION, 'availabilityItems' => [] }.merge(attributes)
   end
 
   def to_json
@@ -16,7 +16,9 @@ class AvailabilityHash
   
   def to_xml
     xml = Builder::XmlMarkup.new
-    xml.response(:version => @hash['version'], :totalRequestTime => @hash['totalRequestTime'], 'xmlns:xlink' => 'http://www.w3.org/1999/xlink') do
+    response_attrs = @hash.reject { |k,v| v.is_a?(Array) or v.is_a?(Hash) }
+    response_attrs['xmlns:xlink'] = 'http://www.w3.org/1999/xlink'
+    xml.response(response_attrs) do
       xml.availabilityItems do
         @hash['availabilityItems'].each { |item|
           xml.availabilities(:id => item['id'], :bib => item['bib']) do
@@ -63,7 +65,7 @@ class AvailabilityScraper
   
   def get_availabilities(bibs)
     start_time = Time.now
-    result = ::AvailabilityHash.new
+    result = ::AvailabilityHash.new('scraperClass' => self.class.name)
     bibs.each { |bib|
       result['availabilityItems'] << get_availability(bib)
     }
