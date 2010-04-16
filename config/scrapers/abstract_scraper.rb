@@ -4,7 +4,7 @@ require 'ostruct'
 
 class AvailabilityHash
 
-  API_VERSION = '0.1.7'
+  API_VERSION = '0.1.8'
   
   def initialize(attributes = {})
     @hash = { 'version' => API_VERSION, 'availabilityItems' => [] }.merge(attributes)
