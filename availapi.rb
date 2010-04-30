@@ -58,7 +58,7 @@ get '/availability' do
   
 end
 
-get '/catalog/record/:id' do
+get '/record/:id' do
   # Let's be all HTTP/1.1 about this and use the 303 SEE OTHER status properly,
   # instead of abusing 302 FOUND the way everyone else does.
   redirect "http://oasis.oregonstate.edu/record=#{params[:id]}", 303
