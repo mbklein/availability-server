@@ -57,3 +57,7 @@ get '/availability' do
   end
   
 end
+
+get '/catalog/record/:id' do
+  redirect "http://oasis.oregonstate.edu/record=#{params[:id]}"
+end
