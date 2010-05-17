@@ -68,7 +68,7 @@ class AvailabilityScraper
     result = ::AvailabilityHash.new('scraperClass' => self.class.name)
     bibs.each { |bib|
       if bib =~ /^t(.+)$/
-        result['availabilityItems'] << YAML.load(File.join(File.dirname(__FILE__), "../../test/#{$1}.yml"))
+        result['availabilityItems'] << YAML.load(File.read(File.join(File.dirname(__FILE__), "../../test/#{$1}.yml")))
       else
         result['availabilityItems'] << get_availability(bib)
       end
