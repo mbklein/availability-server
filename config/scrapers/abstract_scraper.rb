@@ -67,7 +67,11 @@ class AvailabilityScraper
     start_time = Time.now
     result = ::AvailabilityHash.new('scraperClass' => self.class.name)
     bibs.each { |bib|
-      result['availabilityItems'] << get_availability(bib)
+      if bib =~ /^t(.+)$/
+        result['availabilityItems'] << YAML.load(File.join(File.dirname(__FILE__), "../../test/#{$1}.yml"))
+      else
+        result['availabilityItems'] << get_availability(bib)
+      end
     }
     result['totalRequestTime'] = (Time.now - start_time).round
     return result
