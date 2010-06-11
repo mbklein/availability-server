@@ -34,7 +34,7 @@ class OasisScraper < AvailabilityScraper
           'link_title' => link_title
         ]
       }
-    }.flatten
+    }
     
     # Checkin record 856 fields
     content_wrapper.search('tr.bibResourceEntry').each { |item|

@@ -20,10 +20,12 @@ use(Rack::Preprocessor) { |env|
 }
 
 use(Rack::Conneg) { |conneg|
+  # TODO: Include some module-independent registration capability in Rack::Conneg
+  Rack::Mime::MIME_TYPES['.jsons'] = 'application/x-json-stream'
   conneg.set :accept_all_extensions, false
   conneg.set :fallback, :html
   conneg.ignore('/public/')
-  conneg.provide([:json, :xml])
+  conneg.provide([:json,:jsons,:xml])
 }
 
 configure do
@@ -51,8 +53,9 @@ get '/availability' do
   data = scraper.get_availabilities(params['id'] || [])
   
   respond_to do |wants|
-    wants.xml   { data.to_xml  }
-    wants.json  { data.to_json }
+    wants.xml   { data.to_xml   }
+    wants.json  { data.to_json  }
+    wants.jsons { data.to_jsons }
     wants.other { content_type 'text/plain'; error 400, 'Bad Request' }
   end
   

@@ -14,6 +14,11 @@ class AvailabilityHash
     @hash.to_json
   end
   
+  def to_jsons
+    result = @hash['availabilityItems'].inject(StringIO.new('')) { |strio,item| strio.puts(item.to_json); strio }
+    result.string
+  end
+  
   def to_xml
     xml = Builder::XmlMarkup.new
     response_attrs = @hash.reject { |k,v| v.is_a?(Array) or v.is_a?(Hash) }
