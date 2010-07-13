@@ -114,9 +114,6 @@ class OasisScraper < AvailabilityScraper
     availabilities.each { |availability|
       availability.delete('priority')
       availability.delete('index')
-
-      # Response size workaround
-      availability.delete('displayString')
     }
     
     result['availabilities'] = availabilities.uniq
