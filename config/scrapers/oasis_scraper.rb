@@ -1,147 +1,124 @@
 require 'hpricot'
-begin
-  require 'memcache'
-rescue LoadError
-  # Continue without caching
-end
 require 'open-uri'
 
 class OasisScraper < AvailabilityScraper
 
   SUMMARY_LINK_RE = /(contents|finding aid)/i
-
-  def initialize
-    @cache = defined?(MemCache) ? MemCache.new('localhost:11211') : nil
-  end
   
   def get_availability(bib)
-    cache_key = bib
-    result = @cache.nil? ? nil : @cache.get(cache_key)
-    
-    if result.nil?
-      $stderr.print "UNCACHED..."
-      cache_time = 1800
-      # Make sure we properly format the bib, including leading 'b' and removing
-      # check digit. But put the *original* bib in the output, since the client
-      # will probably be keying off of it.
-      result = { 'id' => bib, 'availabilities' => [] }
-      bib = "b#{bib[/[0-9]{7}/]}"
-      result['bib'] = bib
-      availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
-      uri = "http://oasis.oregonstate.edu/record=#{bib}"
-      page = Hpricot(open(uri))
-      content_wrapper = page.search('div.bibContentWrapper').first || page
+    # Make sure we properly format the bib, including leading 'b' and removing
+    # check digit. But put the *original* bib in the output, since the client
+    # will probably be keying off of it.
+    result = { 'id' => bib, 'availabilities' => [] }
+    bib = "b#{bib[/[0-9]{7}/]}"
+    result['bib'] = bib
+    availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
+    uri = "http://oasis.oregonstate.edu/record=#{bib}"
+    page = Hpricot(open(uri))
+    content_wrapper = page.search('div.bibContentWrapper').first || page
 
-      # Bib record 856 fields
-      availabilities = []
+    # Bib record 856 fields
+    availabilities = []
     
-      content_wrapper.search('.bibLinks').each { |item|
-        item.search('//a').each { |a| 
-          link_title = a.inner_text.split(/--/).last.strip
-          availabilities << ContentAwareHash[
-            'status' => 'available',
-            'statusMessage' => 'AVAILABLE',
-            'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
-            'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
-            'priority' => link_title =~ SUMMARY_LINK_RE ? 3 : 1,
-            'index' => availabilities.length,
-            'href' => a.attributes['href'],
-            'link_title' => link_title
-          ]
-        }
+    content_wrapper.search('.bibLinks').each { |item|
+      item.search('//a').each { |a| 
+        link_title = a.inner_text.split(/--/).last.strip
+        availabilities << ContentAwareHash[
+          'status' => 'available',
+          'statusMessage' => 'AVAILABLE',
+          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'priority' => link_title =~ SUMMARY_LINK_RE ? 3 : 1,
+          'index' => availabilities.length,
+          'href' => a.attributes['href'],
+          'link_title' => link_title
+        ]
       }
+    }
     
-      # Checkin record 856 fields
-      content_wrapper.search('tr.bibResourceEntry').each { |item|
-        cells = item.search('td')
-        ranges = parse_date_ranges(cells[0].inner_text.strip)
-        cells[1].search('//a').each_with_index { |a,i| 
-          range_text = ranges[i]
-          range = range_text.split(/-/).collect { |d| Date.parse(d) }
+    # Checkin record 856 fields
+    content_wrapper.search('tr.bibResourceEntry').each { |item|
+      cells = item.search('td')
+      ranges = parse_date_ranges(cells[0].inner_text.strip)
+      cells[1].search('//a').each_with_index { |a,i| 
+        range_text = ranges[i]
+        range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
-          href=a.attributes['href']
-          link_title = a.inner_text.split(/--/).last.strip
-          availability= ContentAwareHash[
-            'status' => 'available',
-            'statusMessage' => "AVAILABLE (#{range_text})",
-            'locationString' => %{<a href="#{href}" target="_new">#{link_title}</a>},
-            'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{href}" target="_new">#{link_title}</a>},
-            'priority' => 1,
-            'index' => availabilities.length,
-            'href' => href,
-            'link_title' => link_title
-          ]
-          availability['date_start'] = range[0]
-          availability['date_end'] = range[1] unless range[1].nil?
-          availabilities << availability
-        }
+        href=a.attributes['href']
+        link_title = a.inner_text.split(/--/).last.strip
+        availability= ContentAwareHash[
+          'status' => 'available',
+          'statusMessage' => "AVAILABLE (#{range_text})",
+          'locationString' => %{<a href="#{href}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE (#{range_text}) via <a href="#{href}" target="_new">#{link_title}</a>},
+          'priority' => 1,
+          'index' => availabilities.length,
+          'href' => href,
+          'link_title' => link_title
+        ]
+        availability['date_start'] = range[0]
+        availability['date_end'] = range[1] unless range[1].nil?
+        availabilities << availability
       }
+    }
 
-      holdings = []
-      content_wrapper.search('td.bibHoldingsLabel').each { |item| 
-        # Ugliest. String transformation. EVER.
-        # Remove \302\240, leading/trailing whitespace, internal \r\n's, and trailing colons, then
-        # convert to Title Case.
-        key = item.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ').sub(/\s*:\s*$/,'').downcase.gsub(/\b(.)/) { |m| m.upcase }
-        if key == 'Location'
-          holdings << { }
-        end
-        holdings.last[key] = item.next_sibling.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ')
-      }
-      if holdings.empty?  
-        content_wrapper.search('.bibItemsEntry').each { |item|
-          cache_time = 300
-          data = item.search('td').collect { |c| 
-            t = c.inner_text.gsub(/\302\240/,'').strip
-          }
+    holdings = []
+    content_wrapper.search('td.bibHoldingsLabel').each { |item| 
+      # Ugliest. String transformation. EVER.
+      # Remove \302\240, leading/trailing whitespace, internal \r\n's, and trailing colons, then
+      # convert to Title Case.
+      key = item.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ').sub(/\s*:\s*$/,'').downcase.gsub(/\b(.)/) { |m| m.upcase }
+      if key == 'Location'
+        holdings << { }
+      end
+      holdings.last[key] = item.next_sibling.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ')
+    }
+    if holdings.empty?  
+      content_wrapper.search('.bibItemsEntry').each { |item|
+        result['ttl'] = short_ttl
+        data = item.search('td').collect { |c| 
+          t = c.inner_text.gsub(/\302\240/,'').strip
+        }
         
-          availabilities << ContentAwareHash[
-            'status' => availability_regexp === data[2] ? 'available' : 'unavailable',
-            'statusMessage' => '%3$s' % data,
-            'locationString' => '%1$s' % data,
-            'callNumber' => '%2$s' % data,
-            'displayString' => '%3$s, %1$s, %2$s' % data,
-            'priority' => 2,
-            'index' => availabilities.length
-          ]
-        }
-      else
-        holdings.each { |holding|
-          availabilities << ContentAwareHash[ 
-            'status' => 'available',
-            'locationString' => holding['Location'],
-            'statusMessage' => "LIBRARY OWNS #{holding['Library Owns']}",
-            'displayString' => "LIBRARY OWNS #{holding['Library Owns']} / #{holding['Location']}",
-            'priority' => 2,
-            'index' => availabilities.length
-          ]
-        }
-      end
-    
-      availabilities.sort! { |a,b| 
-        order = a['priority'] <=> b['priority']
-        # Ensure stable sort; i.e., items of equal priority stay in their original order
-        if order == 0
-          order = a['index'] <=> b['index']
-        end
-        order
+        availabilities << ContentAwareHash[
+          'status' => availability_regexp === data[2] ? 'available' : 'unavailable',
+          'statusMessage' => '%3$s' % data,
+          'locationString' => '%1$s' % data,
+          'callNumber' => '%2$s' % data,
+          'displayString' => '%3$s, %1$s, %2$s' % data,
+          'priority' => 2,
+          'index' => availabilities.length
+        ]
       }
-
-      availabilities.each { |availability|
-        availability.delete('priority')
-        availability.delete('index')
-
-        # Response size workaround
-        availability.delete('displayString')
+    else
+      holdings.each { |holding|
+        availabilities << ContentAwareHash[ 
+          'status' => 'available',
+          'locationString' => holding['Location'],
+          'statusMessage' => "LIBRARY OWNS #{holding['Library Owns']}",
+          'displayString' => "LIBRARY OWNS #{holding['Library Owns']} / #{holding['Location']}",
+          'priority' => 2,
+          'index' => availabilities.length
+        ]
       }
-    
-      result['availabilities'] = availabilities.uniq
-      result['expires'] = Time.now + cache_time
-      unless @cache.nil?
-        $stderr.puts "Caching for #{cache_time} seconds"
-        @cache.add(cache_key, result, cache_time)
-      end
     end
+    
+    availabilities.sort! { |a,b| 
+      order = a['priority'] <=> b['priority']
+      # Ensure stable sort; i.e., items of equal priority stay in their original order
+      if order == 0
+        order = a['index'] <=> b['index']
+      end
+      order
+    }
+
+    availabilities.each { |availability|
+      availability.delete('priority')
+      availability.delete('index')
+    }
+    
+    result['availabilities'] = availabilities.uniq
+    
     return result
   end
   

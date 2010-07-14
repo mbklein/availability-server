@@ -1,2 +1,7 @@
 --- 
 :default_scraper: OasisScraper
+:scraper_config:
+  :cache:
+    :server: localhost:11211
+    :default_ttl: 1800
+    :short_ttl: 300
