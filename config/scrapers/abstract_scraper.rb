@@ -1,10 +1,24 @@
 require 'builder'
 require 'json'
 require 'ostruct'
+begin
+  require 'memcache'
+rescue LoadError
+  # Continue without caching
+end
+
+class Hash
+  def stringify
+    inject({}) { |m,(k,v)|
+      m[k.to_s] = v.respond_to?(:stringify) ? v.stringify : v
+      m
+    }
+  end
+end
 
 class AvailabilityHash
 
-  API_VERSION = '0.1.8'
+  API_VERSION = '0.1.8' unless defined?(API_VERSION)
   
   def initialize(attributes = {})
     @hash = { 'version' => API_VERSION, 'availabilityItems' => [] }.merge(attributes)
@@ -26,7 +40,11 @@ class AvailabilityHash
     xml.response(response_attrs) do
       xml.availabilityItems do
         @hash['availabilityItems'].each { |item|
-          xml.availabilities(:id => item['id'], :bib => item['bib']) do
+          attrs = { :id => item['id'], :bib => item['bib'] }
+          if item['expires']
+            attrs[:expires] = item['expires'].xmlschema
+          end
+          xml.availabilities(attrs) do
             item['availabilities'].each { |avail|
               attrs = avail.dup
               if attrs['href']
@@ -66,7 +84,17 @@ class ContentAwareHash < Hash
 end
 
 class AvailabilityScraper
-  attr :options
+  attr :cache
+  attr :default_ttl
+  attr :short_ttl
+  
+  def initialize(config = {})
+    unless config[:cache].nil? or not defined?(MemCache)
+      @default_ttl = config[:cache][:default_ttl] || 1800
+      @short_ttl = config[:cache][:short_ttl] || 300
+      @cache = MemCache.new(config[:cache][:server], :namespace => self.class.name)
+    end
+  end
   
   def get_availabilities(bibs)
     start_time = Time.now
@@ -76,7 +104,7 @@ class AvailabilityScraper
       if File.exists?(fname)
         result['availabilityItems'] << YAML.load(File.read(fname))
       else
-        result['availabilityItems'] << get_availability(bib)
+        result['availabilityItems'] << get_cached_availability(bib)
       end
     }
     result['totalRequestTime'] = (Time.now - start_time).round
@@ -85,6 +113,30 @@ class AvailabilityScraper
 
   def get_availability(bib)
     { 'id' => bib, 'availabilities' => [] }
+  end
+  
+  private
+  def get_cached_availability(bib)
+    if cache.nil?
+      get_availability(bib)
+    else
+      begin
+        result = cache.get(bib)
+        if result.nil?
+          result = get_availability(bib)
+          ttl = begin
+            result.delete('ttl') || @default_ttl
+          rescue
+            @default_ttl
+          end
+          result['expires'] = Time.now + ttl
+          cache.add(bib, result, ttl)
+        end
+      rescue MemCache::MemCacheError
+        result = get_availability(bib)
+      end
+      return result
+    end
   end
   
 end

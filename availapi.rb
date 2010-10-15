@@ -32,6 +32,7 @@ configure do
   config_file = File.join(File.dirname(__FILE__), 'config/config.yml')
   opts = YAML.load(File.read(config_file))
   set :scraper_class, opts[:default_scraper]
+  set :scraper_config, opts[:scraper_config]
 end
 
 before do
@@ -49,7 +50,7 @@ get '/availability' do
       error 400, "Bad Request: #{params['scraper']} is not a subclass of AvailabilityScraper"
     end
   end
-  scraper = scraper_class.new
+  scraper = scraper_class.new(options.scraper_config)
   data = scraper.get_availabilities(params['id'] || [])
   
   respond_to do |wants|

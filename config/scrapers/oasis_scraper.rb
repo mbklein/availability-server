@@ -14,7 +14,7 @@ class OasisScraper < AvailabilityScraper
     result['bib'] = bib
     availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
     uri = "http://oasis.oregonstate.edu/record=#{bib}"
-    page = Nokogiri(open(uri))
+    page = Nokogiri(open(uri).read)
     content_wrapper = page.search('div.bibContentWrapper').first || page
 
     # Bib record 856 fields
@@ -75,6 +75,7 @@ class OasisScraper < AvailabilityScraper
     }
     if holdings.empty?  
       content_wrapper.search('.bibItemsEntry').each { |item|
+        result['ttl'] = short_ttl
         data = item.search('td').collect { |c| 
           t = c.inner_text.gsub(/\302\240/,'').strip
         }
