@@ -22,15 +22,15 @@ class OasisScraper < AvailabilityScraper
     
     content_wrapper.search('.bibLinks').each { |item|
       item.search('//a').each { |a| 
-        link_title = a.inner_text.split(/--/).last.strip
+        link_title = a.inner_text.to_s.split(/--/).last.strip
         availabilities << ContentAwareHash[
           'status' => 'available',
           'statusMessage' => 'AVAILABLE',
-          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
-          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'locationString' => %{<a href="#{a.attributes['href'].value}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href'].value}" target="_new">#{link_title}</a>},
           'priority' => link_title =~ SUMMARY_LINK_RE ? 3 : 1,
           'index' => availabilities.length,
-          'href' => a.attributes['href'],
+          'href' => a.attributes['href'].value,
           'link_title' => link_title
         ]
       }
@@ -39,13 +39,13 @@ class OasisScraper < AvailabilityScraper
     # Checkin record 856 fields
     content_wrapper.search('tr.bibResourceEntry').each { |item|
       cells = item.search('td')
-      ranges = parse_date_ranges(cells[0].inner_text.strip)
+      ranges = parse_date_ranges(cells[0].inner_text.to_s.strip)
       cells[1].search('//a').each_with_index { |a,i| 
         range_text = ranges[i]
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
-        href=a.attributes['href']
-        link_title = a.inner_text.split(/--/).last.strip
+        href=a.attributes['href'].value
+        link_title = a.inner_text.to_s.split(/--/).last.strip
         availability= ContentAwareHash[
           'status' => 'available',
           'statusMessage' => "AVAILABLE (#{range_text})",
@@ -67,17 +67,17 @@ class OasisScraper < AvailabilityScraper
       # Ugliest. String transformation. EVER.
       # Remove \302\240, leading/trailing whitespace, internal \r\n's, and trailing colons, then
       # convert to Title Case.
-      key = item.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ').sub(/\s*:\s*$/,'').downcase.gsub(/\b(.)/) { |m| m.upcase }
+      key = item.inner_text.to_s.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ').sub(/\s*:\s*$/,'').downcase.gsub(/\b(.)/) { |m| m.upcase }
       if key == 'Location'
         holdings << { }
       end
-      holdings.last[key] = item.next_sibling.inner_text.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ')
+      holdings.last[key] = item.next_sibling.inner_text.to_s.gsub(/\302\240/,'').strip.gsub(/[\r\n]/,' ')
     }
     if holdings.empty?  
       content_wrapper.search('.bibItemsEntry').each { |item|
         result['ttl'] = short_ttl
         data = item.search('td').collect { |c| 
-          t = c.inner_text.gsub(/\302\240/,'').strip
+          t = c.inner_text.to_s.gsub(/\302\240/,'').strip
         }
         
         availabilities << ContentAwareHash[
