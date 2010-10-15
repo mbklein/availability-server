@@ -26,11 +26,11 @@ class OasisScraper < AvailabilityScraper
         availabilities << ContentAwareHash[
           'status' => 'available',
           'statusMessage' => 'AVAILABLE',
-          'locationString' => %{<a href="#{a.attributes['href'].value}" target="_new">#{link_title}</a>},
-          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href'].value}" target="_new">#{link_title}</a>},
+          'locationString' => %{<a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
+          'displayString' => %{AVAILABLE, <a href="#{a.attributes['href']}" target="_new">#{link_title}</a>},
           'priority' => link_title =~ SUMMARY_LINK_RE ? 3 : 1,
           'index' => availabilities.length,
-          'href' => a.attributes['href'].value,
+          'href' => a.attributes['href'] ? a.attributes['href'].value : nil,
           'link_title' => link_title
         ]
       }
@@ -44,7 +44,7 @@ class OasisScraper < AvailabilityScraper
         range_text = ranges[i]
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
-        href=a.attributes['href'].value
+        href=a.attributes['href'] ? a.attributes['href'].value : nil
         link_title = a.inner_text.to_s.split(/--/).last.to_s.strip
         availability= ContentAwareHash[
           'status' => 'available',
