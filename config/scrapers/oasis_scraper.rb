@@ -14,7 +14,7 @@ class OasisScraper < AvailabilityScraper
     result['bib'] = bib
     availability_regexp = /^(AVAILABLE|INTERNET|LIB USE|NEW )/
     uri = "http://oasis.oregonstate.edu/record=#{bib}"
-    page = Nokogiri(open(uri))
+    page = Nokogiri(open(uri).read)
     content_wrapper = page.search('div.bibContentWrapper').first || page
 
     # Bib record 856 fields
