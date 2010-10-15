@@ -22,7 +22,7 @@ class OasisScraper < AvailabilityScraper
     
     content_wrapper.search('.bibLinks').each { |item|
       item.search('//a').each { |a| 
-        link_title = a.inner_text.to_s.split(/--/).last.strip
+        link_title = a.inner_text.to_s.split(/--/).last.to_s.strip
         availabilities << ContentAwareHash[
           'status' => 'available',
           'statusMessage' => 'AVAILABLE',
@@ -45,7 +45,7 @@ class OasisScraper < AvailabilityScraper
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
         href=a.attributes['href'].value
-        link_title = a.inner_text.to_s.split(/--/).last.strip
+        link_title = a.inner_text.to_s.split(/--/).last.to_s.strip
         availability= ContentAwareHash[
           'status' => 'available',
           'statusMessage' => "AVAILABLE (#{range_text})",
