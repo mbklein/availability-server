@@ -21,7 +21,7 @@ class OasisScraper < AvailabilityScraper
     availabilities = []
     
     content_wrapper.search('.bibLinks').each { |item|
-      item.search('//a').each { |a| 
+      item.search('.//a').each { |a| 
         link_title = a.inner_text.to_s.split(/--/).last.to_s.strip
         availabilities << ContentAwareHash[
           'status' => 'available',
@@ -40,7 +40,7 @@ class OasisScraper < AvailabilityScraper
     content_wrapper.search('tr.bibResourceEntry').each { |item|
       cells = item.search('td')
       ranges = parse_date_ranges(cells[0].inner_text.to_s.strip)
-      cells[1].search('//a').each_with_index { |a,i| 
+      cells[1].search('.//a').each_with_index { |a,i| 
         range_text = ranges[i]
         range = range_text.split(/-/).collect { |d| Date.parse(d) }
         
